@@ -1,0 +1,30 @@
+# Raw research data and generated outputs
+data_raw/
+outputs/
+
+# Local notebooks and temporary analysis artefacts
+.ipynb_checkpoints/
+*.tmp
+*.temp
+
+# Python cache and environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Local OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Large/private coursework or presentation documents.
+# Remove these rules if you have checked the files and want them on GitHub.
+*.pdf
+*.docx
+*.pptx
