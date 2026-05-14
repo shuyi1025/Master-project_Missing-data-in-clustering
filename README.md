@@ -18,11 +18,11 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Place the required CSV files in `data_raw/` before running the scripts:
+Place the required Stata data files in `data_raw/` before running the scripts:
 
-- `ADSL.csv`
-- `ADQS.csv`
-- `COPE_Final_Indicators.csv`
+- `ADSL.dta`
+- `ADQS.dta`
+- `COPE_Final_Indicators.dta`
 
 ## Run analyses
 
