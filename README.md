@@ -27,9 +27,7 @@ Place the required Stata data files in `data_raw/` before running the scripts:
 ## Run analyses
 
 ```powershell
-python scripts\plot_adsl_overview.py
 python scripts\plot_cope_distributions.py
-python scripts\plot_ppt_dataset_overviews.py
 python scripts\kmeans_fully_observed_engagement.py
 ```
 
