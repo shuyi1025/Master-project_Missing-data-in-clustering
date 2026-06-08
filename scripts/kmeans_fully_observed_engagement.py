@@ -15,14 +15,19 @@ from sklearn.preprocessing import StandardScaler
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_PATH = ROOT / "data_raw" / "COPE_Final_Indicators.csv"
-OUT_DIR = ROOT / "outputs" / "kmeans_fully_observed_engagement"
+CSV_PATH = ROOT / "data_raw" / "COPE_Final_Indicators.csv"
+DTA_PATH = ROOT / "data_raw" / "COPE_Final_Indicators.dta"
 
 RANDOM_STATE = 42
 K_MIN = 2
 K_MAX = 8
-CHOSEN_K = None  # Set to an integer, e.g. 5, to override silhouette-based selection.
+CHOSEN_K = 5  # Set to None to use silhouette-based selection instead.
 CREATE_UMAP = False  # UMAP is off by default because umap-learn is slow to import in this environment.
+OUT_DIR = ROOT / "outputs" / (
+    f"kmeans_fully_observed_engagement_k{CHOSEN_K}"
+    if CHOSEN_K is not None
+    else "kmeans_fully_observed_engagement"
+)
 
 # Use behavioural engagement measures only. Trial design/access variables are
 # kept for interpretation, but are not used to form the clusters.
@@ -125,7 +130,16 @@ def soften_axes(ax, axis="y"):
 
 
 def read_engagement_data():
-    df = pd.read_csv(DATA_PATH, na_values=["NA", ""])
+    if CSV_PATH.exists():
+        df = pd.read_csv(CSV_PATH, na_values=["NA", ""])
+    elif DTA_PATH.exists():
+        df = pd.read_stata(DTA_PATH)
+    else:
+        raise FileNotFoundError(
+            "Could not find COPE_Final_Indicators.csv or COPE_Final_Indicators.dta "
+            f"in {CSV_PATH.parent}"
+        )
+
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
@@ -215,6 +229,41 @@ def make_cluster_outputs(df, x_scaled, scaler, model, labels):
     )
 
     return assignments, profile, centers, centers_z, pca_df, pca
+
+
+def make_pca_outputs(pca, n_complete_cases):
+    component_coefficients = pca.components_.T
+    correlation_loadings = component_coefficients * np.sqrt(pca.explained_variance_)
+
+    loadings = pd.DataFrame(
+        {
+            "variable": FEATURE_COLS,
+            "PC1_loading": correlation_loadings[:, 0],
+            "PC2_loading": correlation_loadings[:, 1],
+            "PC1_abs_loading": np.abs(correlation_loadings[:, 0]),
+            "PC2_abs_loading": np.abs(correlation_loadings[:, 1]),
+            "PC1_rank": pd.Series(np.abs(correlation_loadings[:, 0])).rank(
+                ascending=False, method="min"
+            ),
+            "PC2_rank": pd.Series(np.abs(correlation_loadings[:, 1])).rank(
+                ascending=False, method="min"
+            ),
+            "PC1_component_coefficient": component_coefficients[:, 0],
+            "PC2_component_coefficient": component_coefficients[:, 1],
+        }
+    )
+
+    variance = pd.DataFrame(
+        {
+            "component": ["PC1", "PC2"],
+            "explained_variance": pca.explained_variance_,
+            "explained_variance_ratio": pca.explained_variance_ratio_,
+            "explained_variance_percent": pca.explained_variance_ratio_ * 100,
+            "cumulative_variance_percent": np.cumsum(pca.explained_variance_ratio_) * 100,
+            "n_complete_cases": [n_complete_cases, n_complete_cases],
+        }
+    )
+    return loadings, variance
 
 
 def make_umap_scores(df, x_scaled, labels):
@@ -385,6 +434,7 @@ def main():
         model,
         labels,
     )
+    pca_loadings, pca_variance = make_pca_outputs(pca, len(fully_observed))
     umap_df = make_umap_scores(fully_observed, x_scaled, labels) if CREATE_UMAP else None
 
     clustered = assignments.copy()
@@ -394,6 +444,8 @@ def main():
     centers.to_csv(OUT_DIR / "kmeans_cluster_centres_original_scale.csv", index=False)
     centers_z.to_csv(OUT_DIR / "kmeans_cluster_centres_standardised.csv", index=False)
     pca_df.to_csv(OUT_DIR / "kmeans_pca_scores.csv", index=False)
+    pca_loadings.to_csv(OUT_DIR / "pca_loadings.csv", index=False, float_format="%.6f")
+    pca_variance.to_csv(OUT_DIR / "pca_explained_variance.csv", index=False, float_format="%.6f")
     if umap_df is not None:
         umap_df.to_csv(OUT_DIR / "kmeans_umap_scores.csv", index=False)
 

@@ -29,6 +29,12 @@ Place the required Stata data files in `data_raw/` before running the scripts:
 ```powershell
 python scripts\plot_cope_distributions.py
 python scripts\kmeans_fully_observed_engagement.py
+python scripts\simulation\simulation_gmm_kmeans.py
+python scripts\simulation\run_median.py
+python scripts\simulation\run_mice_pmm.py
+python scripts\simulation\run_knn.py
+python scripts\simulation\run_random_forest.py
+python scripts\simulation\run_kpod.py
 ```
 
 Generated figures and tables are written to `outputs/`.

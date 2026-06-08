@@ -6,7 +6,8 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_PATH = ROOT / "data_raw" / "COPE_Final_Indicators.csv"
+CSV_PATH = ROOT / "data_raw" / "COPE_Final_Indicators.csv"
+DTA_PATH = ROOT / "data_raw" / "COPE_Final_Indicators.dta"
 OUT_DIR = ROOT / "outputs" / "cope_distributions"
 
 PALETTE = [
@@ -77,6 +78,22 @@ def numeric_columns(df):
     return [col for col in df.columns if col != "ID" and pd.api.types.is_numeric_dtype(df[col])]
 
 
+def read_cope_data():
+    if CSV_PATH.exists():
+        df = pd.read_csv(CSV_PATH, na_values=["NA", ""])
+    elif DTA_PATH.exists():
+        df = pd.read_stata(DTA_PATH)
+    else:
+        raise FileNotFoundError(
+            "Could not find COPE_Final_Indicators.csv or COPE_Final_Indicators.dta "
+            f"in {CSV_PATH.parent}"
+        )
+
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
 def plot_hist_grid(df, columns, filename, title, transform=None, xlabel_prefix=""):
     n_cols = 4
     n_rows = (len(columns) + n_cols - 1) // n_cols
@@ -144,10 +161,22 @@ def plot_key_boxplots_by_group(df, group_col):
     axes = axes.flatten()
 
     for ax, col in zip(axes, key_vars):
-        grouped = [df.loc[df[group_col] == value, col].dropna() for value in group_values]
+        grouped = []
+        labels = []
+        for value in group_values:
+            values = df.loc[df[group_col] == value, col].dropna()
+            if values.empty:
+                continue
+            grouped.append(values)
+            labels.append(str(int(value)) if float(value).is_integer() else str(value))
+
+        if not grouped:
+            ax.axis("off")
+            continue
+
         box = ax.boxplot(
             grouped,
-            tick_labels=[str(int(value)) for value in group_values],
+            tick_labels=labels,
             showfliers=True,
             patch_artist=True,
             boxprops={"facecolor": "#9bd6f0", "edgecolor": "#12355b", "linewidth": 1.1},
@@ -180,9 +209,7 @@ def plot_key_boxplots_by_group(df, group_col):
 
 def main():
     apply_plot_style()
-    df = pd.read_csv(DATA_PATH, na_values=["NA", ""])
-    for col in df.columns:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = read_cope_data()
 
     cat_cols = [col for col in ["cohort", "trt", "registered", "activated"] if col in df.columns]
     num_cols = numeric_columns(df)
