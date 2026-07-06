@@ -1,0 +1,2 @@
+n_observed_complete_cases,n_synthetic,k,gmm_converged,gmm_n_iter,kmeans_inertia,silhouette,ari_kmeans_vs_true_gmm_component
+141,5000,5,True,2,18670.073687921107,0.5646430856783485,0.9324082577803616

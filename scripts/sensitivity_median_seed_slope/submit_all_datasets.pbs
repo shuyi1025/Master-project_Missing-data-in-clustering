@@ -1,0 +1,20 @@
+#!/bin/bash
+#PBS -N cope_seed_slope_all
+#PBS -l select=1:ncpus=10:mem=64gb
+#PBS -l walltime=24:00:00
+#PBS -j oe
+
+
+cd "${PBS_O_WORKDIR:-/rds/general/user/sp4024/home/final_project}"
+
+mkdir -p outputs/sensitivity_median_seed_slope/hpc_logs
+
+python scripts/sensitivity_median_seed_slope/run_median_seed_slope.py \
+  --synthetic-size all \
+  --methods median kpod \
+  --mechanisms MAR MNAR \
+  --rates 0.30 0.40 0.50 \
+  --base-seeds 101 123 202 404 808 \
+  --slopes -0.50 -0.75 -1.25 -2.00 -2.50 \
+  --b 30 \
+  --output-prefix sensitivity
