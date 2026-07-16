@@ -74,6 +74,7 @@ The dataset contains no obvious direct identifiers such as names, email addresse
 |-- scripts/
 |   |-- plot_cope_distributions.py
 |   |-- kmeans_fully_observed_engagement.py
+|   |-- simulation_gmm_kmeans.py   # Original GMM/K-means synthetic-data generator
 |   |-- simulation_204/             # n=204 generation, methods, summaries, plots
 |   |-- simulation_2000/            # n=2,000 generation, methods, summaries, plots
 |   |-- simulation_5000/            # n=5,000 generation, methods, summaries, plots
@@ -121,6 +122,10 @@ python scripts\kmeans_fully_observed_engagement.py
 The script evaluates candidate values of `k` from 2 to 8 and currently uses `k = 5` for the reference clustering. It writes cluster assignments, standardised and original-scale profiles, PCA results, diagnostics, and figures to `outputs/kmeans_fully_observed_engagement_k5/`.
 
 ### 3. Generate complete synthetic datasets
+
+The original standalone GMM/K-means synthetic-data generator is kept at
+`scripts/simulation_gmm_kmeans.py` (moved from `outputs/simulation_gmm_kmeans2000/`).
+The size-specific generation scripts used by the current simulation workflow are:
 
 ```powershell
 python scripts\simulation_204\simulation_gmm_kmeans_204.py

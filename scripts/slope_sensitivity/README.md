@@ -42,39 +42,18 @@ python scripts\slope_sensitivity\run_slope_sensitivity_mice_pmm.py
 python scripts\slope_sensitivity\run_slope_sensitivity_random_forest.py
 ```
 
-For the two slowest methods, the four slopes also have separate Python/PBS
-pairs. Submit these eight jobs independently so that the slopes can run in
-parallel on the HPC:
+For the two slowest methods, each PBS script now runs all four slopes together
+for MAR and MNAR across all three synthetic dataset sizes. Submit one job per
+method on the HPC:
 
 ```bash
-qsub run_slope_sensitivity_random_forest_slope_neg050.sh
-qsub run_slope_sensitivity_random_forest_slope_neg075.sh
-qsub run_slope_sensitivity_random_forest_slope_neg200.sh
-qsub run_slope_sensitivity_random_forest_slope_neg250.sh
-
-qsub run_slope_sensitivity_mice_pmm_slope_neg050.sh
-qsub run_slope_sensitivity_mice_pmm_slope_neg075.sh
-qsub run_slope_sensitivity_mice_pmm_slope_neg200.sh
-qsub run_slope_sensitivity_mice_pmm_slope_neg250.sh
+qsub run_slope_sensitivity_random_forest.sh
+qsub run_slope_sensitivity_mice_pmm.sh
 ```
 
-Here `neg050`, `neg075`, `neg200`, and `neg250` mean slopes `-0.50`, `-0.75`,
-`-2.00`, and `-2.50`. Each job uses a distinct output prefix, so concurrent jobs
-do not overwrite one another. The summarising script automatically reads all of
-the resulting seed-summary CSV files.
-
-After the four jobs for each method have finished, combine and validate the RF
-and PMM outputs separately:
-
-```bash
-qsub combine_random_forest_slope_results.sh
-qsub combine_mice_pmm_slope_results.sh
-```
-
-Each combiner creates method-specific detailed, summary, and seed-summary CSVs
-for every dataset size, plus three method-specific `*_all_sizes.csv` files. By
-default, each script stops and reports the missing filenames unless all 12
-detailed inputs for that method are present (four slopes x three dataset sizes).
+The four slopes are `-0.50`, `-0.75`, `-2.00`, and `-2.50`. They are no longer
+split across separate Python/PBS pairs, so no slope-result combine step is
+required.
 
 For a quick smoke test, override the repetition count, rates, slopes, mechanism,
 dataset size, and MICE-PMM imputation count:
