@@ -124,7 +124,7 @@ The script evaluates candidate values of `k` from 2 to 8 and currently uses `k =
 
 ```powershell
 python scripts\simulation_204\simulation_gmm_kmeans_204.py
-python scripts\simulation_2000\simulation_gmm_kmeans.py
+python scripts\simulation_2000\simulation_gmm_kmeans_2000.py
 python scripts\simulation_5000\simulation_gmm_kmeans_5000.py
 ```
 
@@ -149,7 +149,15 @@ python scripts\simulation_2000\run_kpod.py
 python scripts\simulation_2000\run_mice_pmm.py
 python scripts\simulation_2000\run_random_forest.py
 ```
+### 6. Run the main simulation at n=5,000
 
+```powershell
+python scripts\simulation_5000\run_median.py
+python scripts\simulation_5000\run_knn.py
+python scripts\simulation_5000\run_kpod.py
+python scripts\simulation_5000\run_mice_pmm.py
+python scripts\simulation_5000\run_random_forest.py
+```
 
 Use `python <script> --help` to inspect supported overrides such as repetition count, missingness mechanism, rate, and number of imputations. Full runs are computationally expensive; use small overrides for smoke tests before submitting 500-repetition jobs.
 
@@ -218,17 +226,6 @@ qsub run_slope_sensitivity_median.sh
 
 Review the requested wall time, CPU count, memory, Conda environment name, and repetition count before submission because these settings are cluster-specific.
 
-## Reproducibility notes
-
-- Main random seeds are fixed in the scripts (`42` for the observed-data K-means analysis and `123` for simulation generation and evaluation).
-- K-means uses five clusters and repeated initialisation.
-- The complete synthetic dataset is held fixed within a sample-size scenario while a new missingness pattern is generated in each Monte Carlo replication.
-- Cluster labels are matched to the benchmark solution before centroid and cluster-size errors are calculated.
-- MICE-PMM uses 10 imputations, 5 iterative updates, and 5 PMM donors.
-
-## Current interpretation
-
-The current draft results indicate that performance worsens as missingness increases and that MAR/MNAR scenarios are generally more difficult than MCAR. Random-forest imputation currently shows the strongest overall recovery of the full-data clustering in many settings, with MICE-PMM often performing next best. These findings are provisional until all simulation and sensitivity runs have been finalised and checked.
 
 ## Project status
 
