@@ -76,7 +76,7 @@ The dataset contains no obvious direct identifiers such as names, email addresse
 |   |-- kmeans_fully_observed_engagement.py
 |   |-- simulation_204/             # n=204 generation, methods, summaries, plots
 |   |-- simulation_2000/            # n=2,000 generation, methods, summaries, plots
-|   |-- simulation_5000/            # n=5,000 generation, summaries, plots
+|   |-- simulation_5000/            # n=5,000 generation, methods, summaries, plots
 |   `-- slope_sensitivity/           # Cross-size MAR/MNAR slope sensitivity workflow
 |-- requirements.txt
 `-- README.md
@@ -161,7 +161,7 @@ python scripts\simulation_5000\run_random_forest.py
 
 Use `python <script> --help` to inspect supported overrides such as repetition count, missingness mechanism, rate, and number of imputations. Full runs are computationally expensive; use small overrides for smoke tests before submitting 500-repetition jobs.
 
-### 6. Combine summaries and draw comparison plots
+### 7. Combine summaries and draw comparison plots
 
 For `n=204`:
 
