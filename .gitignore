@@ -1,5 +1,4 @@
-# Raw research data and generated outputs
-data_raw/
+# Generated outputs are ignored by default. Existing tracked result files remain versioned.
 outputs/
 
 # Local notebooks and temporary analysis artefacts
@@ -21,6 +20,7 @@ env/
 .DS_Store
 Thumbs.db
 .vscode/
+.agent/
 .idea/
 
 # Large/private coursework or presentation documents.

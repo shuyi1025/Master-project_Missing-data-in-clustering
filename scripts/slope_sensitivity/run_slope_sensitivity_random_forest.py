@@ -1,4 +1,4 @@
-"""Run imputation sensitivity checks across random seeds and slopes."""
+"""Run slope sensitivity for random forest imputation across synthetic dataset sizes."""
 
 import argparse
 import os
@@ -7,19 +7,32 @@ from itertools import permutations
 from pathlib import Path
 from types import SimpleNamespace
 
-os.environ.setdefault("LOKY_MAX_CPU_COUNT", "4")
+def detect_num_workers():
+    try:
+        pbs_workers = int(os.getenv("PBS_NP", "0"))
+    except ValueError:
+        pbs_workers = 0
+    return pbs_workers if pbs_workers > 0 else max(1, (os.cpu_count() or 1) // 4)
+
+
+NUM_WORKERS = detect_num_workers()
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", str(NUM_WORKERS))
 os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 import numpy as np
 import pandas as pd
 
 from sklearn.cluster import KMeans
-from sklearn.impute import SimpleImputer
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.experimental import enable_iterative_imputer  # noqa: F401
+from sklearn.impute import IterativeImputer, KNNImputer, SimpleImputer
+from sklearn.linear_model import BayesianRidge
 from sklearn.metrics import adjusted_rand_score, silhouette_score
 
 
-ROOT = Path(__file__).resolve().parents[2]
-OUTPUT_DIR = ROOT / "outputs" / "sensitivity_median_seed_slope"
+SCRIPT_PATH = Path(__file__).resolve()
+ROOT = SCRIPT_PATH.parents[2] if SCRIPT_PATH.parents[1].name == "scripts" else SCRIPT_PATH.parents[1]
+OUTPUT_DIR = ROOT / "outputs" / "slope_sensitivity"
 SYNTHETIC_SOURCES = {
     "204": ROOT / "outputs" / "simulation_gmm_kmeans204" / "synthetic_complete_standardised.csv",
     "2000": ROOT / "outputs" / "simulation_gmm_kmeans2000" / "synthetic_complete_standardised.csv",
@@ -55,12 +68,19 @@ K = 5
 KMEANS_N_INIT = 50
 KPOD_MAX_ITER = 50
 KPOD_TOL = 1e-4
+KNN_N_NEIGHBORS = 5
+MICE_N_IMPUTATIONS = 20
+MICE_MAX_ITER = 10
+PMM_DONORS = 5
+RF_MAX_ITER = 10
+RF_TOL = 0.3
+RF_N_ESTIMATORS = 50
 MAR_DRIVER_COLS = ["totalmins", "pageviews", "posts"]
-DEFAULT_RATES = [0.30, 0.40, 0.50]
-DEFAULT_SEEDS = [101, 123, 202, 404, 808]
-DEFAULT_SLOPES = [-0.50, -0.75, -1.25, -2.00, -2.50]
+DEFAULT_RATES = [0.10, 0.20, 0.30, 0.40, 0.50]
+DEFAULT_SEEDS = [123]
+DEFAULT_SLOPES = [-0.50, -0.75, -2.00, -2.50]
 DEFAULT_MECHANISMS = ["MAR", "MNAR"]
-DEFAULT_METHODS = ["median", "kpod"]
+DEFAULT_METHODS = ["random_forest"]
 
 
 def scenario_seed(base_random_state, *parts):
@@ -172,14 +192,12 @@ def as_frame(values, template):
     return pd.DataFrame(values, columns=template.columns, index=template.index)
 
 
-def impute_median(x_missing):
+def impute_knn(x_missing):
     start = time.perf_counter()
-    imputer = SimpleImputer(strategy="median")
+    imputer = KNNImputer(n_neighbors=KNN_N_NEIGHBORS, weights="distance")
     completed = as_frame(imputer.fit_transform(x_missing), x_missing)
     return {
-        "completed": completed,
-        "model": None,
-        "labels": None,
+        "completed_datasets": [completed],
         "runtime_seconds": time.perf_counter() - start,
     }
 
@@ -211,18 +229,103 @@ def impute_kpod(x_missing, random_state):
 
     final_model, final_labels = run_kmeans(x_filled, random_state=random_state)
     return {
-        "completed": x_filled,
-        "model": final_model,
-        "labels": final_labels,
+        "completed_datasets": [x_filled],
+        "models": [final_model],
+        "labels_list": [final_labels],
         "runtime_seconds": time.perf_counter() - start,
     }
 
 
-def impute_with_method(x_missing, method, random_state):
+def pmm_once(x_missing, random_state):
+    rng = np.random.default_rng(random_state)
+    x_filled = initial_median_fill(x_missing)
+    missing_mask = x_missing.isna()
+
+    for _ in range(MICE_MAX_ITER):
+        for target_col in x_missing.columns:
+            missing_rows = missing_mask[target_col].to_numpy()
+            if not missing_rows.any():
+                continue
+
+            observed_rows = ~missing_rows
+            predictor_cols = [col for col in x_missing.columns if col != target_col]
+            x_obs = x_filled.loc[observed_rows, predictor_cols]
+            y_obs = x_filled.loc[observed_rows, target_col]
+            x_mis = x_filled.loc[missing_rows, predictor_cols]
+
+            model = BayesianRidge()
+            model.fit(x_obs, y_obs)
+            pred_obs = model.predict(x_obs)
+            pred_mis = model.predict(x_mis)
+            donor_values = y_obs.to_numpy()
+
+            imputed = []
+            for pred in pred_mis:
+                donor_idx = np.argsort(np.abs(pred_obs - pred))[:PMM_DONORS]
+                imputed.append(rng.choice(donor_values[donor_idx]))
+            x_filled.loc[missing_rows, target_col] = imputed
+
+    return x_filled
+
+
+def impute_mice_pmm(x_missing, random_state, n_imputations=MICE_N_IMPUTATIONS):
+    start = time.perf_counter()
+    completed = [
+        pmm_once(x_missing, random_state + m * 1009)
+        for m in range(n_imputations)
+    ]
+    return {
+        "completed_datasets": completed,
+        "runtime_seconds": time.perf_counter() - start,
+    }
+
+
+def impute_random_forest(x_missing, random_state):
+    start = time.perf_counter()
+    estimator = RandomForestRegressor(
+        n_estimators=RF_N_ESTIMATORS,
+        random_state=random_state,
+        n_jobs=-1,
+        min_samples_leaf=3,
+    )
+    imputer = IterativeImputer(
+        estimator=estimator,
+        max_iter=RF_MAX_ITER,
+        tol=RF_TOL,
+        random_state=random_state,
+        initial_strategy="median",
+        skip_complete=True,
+    )
+    completed = as_frame(imputer.fit_transform(x_missing), x_missing)
+    return {
+        "completed_datasets": [completed],
+        "runtime_seconds": time.perf_counter() - start,
+    }
+
+
+def as_method_result(completed, start):
+    return {
+        "completed_datasets": [completed],
+        "runtime_seconds": time.perf_counter() - start,
+    }
+
+
+def impute_with_method(x_missing, method, random_state, n_imputations):
     if method == "median":
-        return impute_median(x_missing)
+        start = time.perf_counter()
+        return as_method_result(initial_median_fill(x_missing), start)
+    if method == "knn":
+        return impute_knn(x_missing)
     if method == "kpod":
         return impute_kpod(x_missing, random_state=random_state)
+    if method == "mice_pmm":
+        return impute_mice_pmm(
+            x_missing,
+            random_state=random_state,
+            n_imputations=n_imputations,
+        )
+    if method == "random_forest":
+        return impute_random_forest(x_missing, random_state=random_state)
     raise ValueError(f"Unknown imputation method: {method}")
 
 
@@ -331,6 +434,14 @@ def save_summaries(results, output_stem, synthetic_size):
     return summary_path, seed_summary_path
 
 
+def output_stem_for_args(args):
+    if args.output_prefix:
+        return args.output_prefix
+    if len(args.methods) == 1:
+        return f"sensitivity_{args.methods[0]}_slope4"
+    return "sensitivity_all_methods_slope4"
+
+
 def run_one_synthetic_size(args, synthetic_size):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     source_path, x_complete, true_gmm_labels, benchmark_labels = load_synthetic_complete_data(
@@ -342,7 +453,7 @@ def run_one_synthetic_size(args, synthetic_size):
     )
     reference_ari = adjusted_rand_score(true_gmm_labels, benchmark_labels)
 
-    output_stem = args.output_prefix or "sensitivity"
+    output_stem = output_stem_for_args(args)
     result_path = OUTPUT_DIR / f"{output_stem}_results_n{synthetic_size}.csv"
 
     print("=" * 72)
@@ -386,31 +497,41 @@ def run_one_synthetic_size(args, synthetic_size):
                                 x_missing,
                                 method=method,
                                 random_state=method_seed,
+                                n_imputations=args.m,
                             )
-                            x_completed = method_result["completed"]
-                            model = method_result["model"]
-                            labels = method_result["labels"]
-
-                            if model is None or labels is None:
-                                model, labels = run_kmeans(
-                                    x_completed,
-                                    random_state=scenario_seed(
-                                        base_seed,
-                                        "kmeans",
-                                        b,
-                                        int(rate * 1000),
-                                        mechanism,
-                                        method,
-                                    ),
+                            completed_datasets = method_result["completed_datasets"]
+                            models = method_result.get("models", [None] * len(completed_datasets))
+                            labels_list = method_result.get(
+                                "labels_list",
+                                [None] * len(completed_datasets),
+                            )
+                            metric_rows = []
+                            for m, x_completed in enumerate(completed_datasets, start=1):
+                                model = models[m - 1]
+                                labels = labels_list[m - 1]
+                                if model is None or labels is None:
+                                    model, labels = run_kmeans(
+                                        x_completed,
+                                        random_state=scenario_seed(
+                                            base_seed,
+                                            "kmeans",
+                                            b,
+                                            int(rate * 1000),
+                                            mechanism,
+                                            method,
+                                            m,
+                                        ),
+                                    )
+                                metric_rows.append(
+                                    compute_metrics(
+                                        x_completed,
+                                        model,
+                                        labels,
+                                        benchmark_model,
+                                        benchmark_labels,
+                                    )
                                 )
-
-                            metrics = compute_metrics(
-                                x_completed,
-                                model,
-                                labels,
-                                benchmark_model,
-                                benchmark_labels,
-                            )
+                            averaged = pd.DataFrame(metric_rows).mean(numeric_only=True).to_dict()
                             rows.append(
                                 {
                                     "base_random_state": base_seed,
@@ -422,9 +543,10 @@ def run_one_synthetic_size(args, synthetic_size):
                                     "observed_missing_rate": float(mask.to_numpy().mean()),
                                     "missingness_logit_slope": slope,
                                     "method": method,
+                                    "n_imputed_datasets": len(completed_datasets),
                                     "runtime_seconds": method_result["runtime_seconds"],
                                     "ari_true_gmm_vs_benchmark": reference_ari,
-                                    **metrics,
+                                    **averaged,
                                 }
                             )
 
@@ -453,31 +575,43 @@ def run(args):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Sensitivity check for imputation methods across seeds and slopes."
+        description="Run slope sensitivity for random forest imputation."
     )
     parser.add_argument(
         "--synthetic-size",
         choices=sorted(SYNTHETIC_SOURCES) + ["all"],
-        default="5000",
-        help="Synthetic dataset to use, or 'all' to run 204, 2000, and 5000. Default: 5000.",
+        default="all",
+        help="Synthetic dataset size to run. Default: all.",
     )
-    parser.add_argument("--methods", nargs="+", choices=["median", "kpod"], default=DEFAULT_METHODS)
     parser.add_argument("--mechanisms", nargs="+", choices=["MAR", "MNAR"], default=DEFAULT_MECHANISMS)
     parser.add_argument("--rates", nargs="+", type=float, default=DEFAULT_RATES)
-    parser.add_argument("--base-seeds", nargs="+", type=int, default=DEFAULT_SEEDS)
     parser.add_argument("--slopes", nargs="+", type=float, default=DEFAULT_SLOPES)
-    parser.add_argument("--b", type=int, default=30, help="Replications per seed/slope/rate.")
+    parser.add_argument(
+        "--b",
+        type=int,
+        default=30,
+        help="Replications per mechanism/rate/slope combination.",
+    )
     parser.add_argument(
         "--output-prefix",
-        default=None,
-        help="Short output stem. Default creates sensitivity_*_n<size>.csv files.",
+        default="sensitivity_random_forest_slope4",
+        help="Short output stem for this method.",
     )
-    return parser.parse_args()
+    cli_args = parser.parse_args()
+    cli_args.methods = DEFAULT_METHODS
+    cli_args.base_seeds = DEFAULT_SEEDS
+    cli_args.m = MICE_N_IMPUTATIONS
+    return cli_args
 
 
-if __name__ == "__main__":
+def main(fixed_slope=None, fixed_output_prefix=None):
     start = time.perf_counter()
-    out = run(parse_args())
+    args = parse_args()
+    if fixed_slope is not None:
+        args.slopes = [fixed_slope]
+    if fixed_output_prefix is not None:
+        args.output_prefix = fixed_output_prefix
+    out = run(args)
     print("\nSensitivity run complete.")
     print(
         out.groupby(["method", "mechanism", "target_missing_rate", "missingness_logit_slope"])[
@@ -495,3 +629,7 @@ if __name__ == "__main__":
         .round(4)
     )
     print(f"Elapsed seconds: {time.perf_counter() - start:.1f}")
+
+
+if __name__ == "__main__":
+    main()

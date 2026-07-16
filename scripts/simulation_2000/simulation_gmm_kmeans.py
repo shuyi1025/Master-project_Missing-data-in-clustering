@@ -13,9 +13,9 @@ from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
 
 
-ROOT = Path("/rds/general/user/sp4024/home/final_project")
+ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data_raw"
-OUT_DIR = ROOT / "outputs" / "simulation_gmm_kmeans"
+OUT_DIR = ROOT / "outputs" / "simulation_gmm_kmeans2000"
 
 CSV_PATH = DATA_DIR / "COPE_Final_Indicators.csv"
 DTA_PATH = DATA_DIR / "COPE_Final_Indicators.dta"

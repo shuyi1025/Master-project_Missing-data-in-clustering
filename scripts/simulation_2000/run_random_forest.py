@@ -30,9 +30,9 @@ from sklearn.metrics import adjusted_rand_score, silhouette_score
 
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT_DIR = ROOT / "outputs" / "simulation"
+OUTPUT_DIR = ROOT / "outputs" / "simulation2000"
 SYNTHETIC_SOURCE_PATH = (
-    ROOT / "outputs" / "simulation_gmm_kmeans" / "synthetic_complete_standardised.csv"
+    ROOT / "outputs" / "simulation_gmm_kmeans2000" / "synthetic_complete_standardised.csv"
 )
 
 FEATURE_COLS = [
@@ -48,7 +48,7 @@ BENCHMARK_LABEL_COL = "kmeans_full_data_cluster"
 K = 5
 B = 500
 MISSINGNESS_MECHANISMS = ["MCAR", "MAR", "MNAR"]
-MISSINGNESS_RATES = [0.10, 0.30, 0.50]
+MISSINGNESS_RATES = [0.10, 0.20, 0.30, 0.40, 0.50]
 RANDOM_STATE = 123
 KMEANS_N_INIT = 50
 MAR_DRIVER_COLS = ["totalmins", "pageviews", "posts"]
@@ -78,7 +78,7 @@ def load_synthetic_complete_data():
     if not SYNTHETIC_SOURCE_PATH.exists():
         raise FileNotFoundError(
             "Synthetic complete data file not found. Run "
-            "scripts/simulation/simulation_gmm_kmeans.py first. Expected: "
+            "scripts/simulation_2000/simulation_gmm_kmeans.py first. Expected: "
             f"{SYNTHETIC_SOURCE_PATH}"
         )
     df = pd.read_csv(SYNTHETIC_SOURCE_PATH)
@@ -332,7 +332,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Run the complete random forest simulation script."
     )
-    parser.add_argument("--smoke", action="store_true", help="Run B=1 at 10% missingness.")
+    parser.add_argument("--smoke", action="store_true", help="Run B=1 at 10%% missingness.")
     parser.add_argument("--b", type=int, default=None, help=f"Replications. Default: {B}.")
     parser.add_argument("--mechanisms", nargs="+", choices=MISSINGNESS_MECHANISMS, default=None)
     parser.add_argument("--rates", nargs="+", type=float, default=None)
@@ -344,7 +344,7 @@ def parse_single_mechanism_args(mechanism):
     parser = argparse.ArgumentParser(
         description=f"Run the random forest simulation for {mechanism} missingness."
     )
-    parser.add_argument("--smoke", action="store_true", help="Run B=1 at 10% missingness.")
+    parser.add_argument("--smoke", action="store_true", help="Run B=1 at 10%% missingness.")
     parser.add_argument("--b", type=int, default=None, help=f"Replications. Default: {B}.")
     parser.add_argument("--rates", nargs="+", type=float, default=None)
     parser.add_argument("--output", default=None)

@@ -26,7 +26,7 @@ from sklearn.linear_model import BayesianRidge
 from sklearn.metrics import adjusted_rand_score, silhouette_samples
 
 
-ROOT = Path("/rds/general/user/sp4024/home/final_project")
+ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "outputs" / "simulation204"
 SYNTHETIC_SOURCE_PATH = (
     ROOT / "outputs" / "simulation_gmm_kmeans204" / "synthetic_complete_standardised.csv"
@@ -82,7 +82,7 @@ def load_synthetic_complete_data():
     if not SYNTHETIC_SOURCE_PATH.exists():
         raise FileNotFoundError(
             "Synthetic complete data file not found. Run "
-            "scripts/simulation/simulation_gmm_kmeans204.py first. Expected: "
+            "scripts/simulation_204/simulation_gmm_kmeans_204.py first. Expected: "
             f"{SYNTHETIC_SOURCE_PATH}"
         )
     df = pd.read_csv(SYNTHETIC_SOURCE_PATH)
@@ -544,7 +544,7 @@ def run(args):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run the complete MICE PMM simulation script.")
-    parser.add_argument("--smoke", action="store_true", help="Run B=1 at 10% missingness.")
+    parser.add_argument("--smoke", action="store_true", help="Run B=1 at 10%% missingness.")
     parser.add_argument("--b", type=int, default=None, help=f"Replications. Default: {B}.")
     parser.add_argument("--m", type=int, default=None, help=f"PMM imputations. Default: {MICE_N_IMPUTATIONS}.")
     parser.add_argument("--mechanisms", nargs="+", choices=MISSINGNESS_MECHANISMS, default=None)

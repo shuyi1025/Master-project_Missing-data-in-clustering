@@ -358,7 +358,7 @@ def best_label_permutation(reference_centers, estimated_centers):
 
 
 
- def compute_metrics(x_completed, estimated_model, estimated_labels,
+def compute_metrics(x_completed, estimated_model, estimated_labels,
                     benchmark_model, benchmark_labels):
 
     # Step 1: match estimated cluster labels to benchmark cluster labels.
@@ -406,4 +406,4 @@ def best_label_permutation(reference_centers, estimated_centers):
         "centroid_error_max": centroid_error_max,
         "cluster_size_error_mean_abs": cluster_size_error,
         "silhouette": silhouette
-    }   
+    }
