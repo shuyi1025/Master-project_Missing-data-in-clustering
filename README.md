@@ -150,13 +150,6 @@ python scripts\simulation_2000\run_mice_pmm.py
 python scripts\simulation_2000\run_random_forest.py
 ```
 
-The MICE-PMM workflow also has mechanism-specific entry points that can be submitted as separate jobs:
-
-```powershell
-python scripts\simulation_2000\run_mice_pmm_mcar.py
-python scripts\simulation_2000\run_mice_pmm_mar.py
-python scripts\simulation_2000\run_mice_pmm_mnar.py
-```
 
 Use `python <script> --help` to inspect supported overrides such as repetition count, missingness mechanism, rate, and number of imputations. Full runs are computationally expensive; use small overrides for smoke tests before submitting 500-repetition jobs.
 
@@ -232,7 +225,6 @@ Review the requested wall time, CPU count, memory, Conda environment name, and r
 - The complete synthetic dataset is held fixed within a sample-size scenario while a new missingness pattern is generated in each Monte Carlo replication.
 - Cluster labels are matched to the benchmark solution before centroid and cluster-size errors are calculated.
 - MICE-PMM uses 10 imputations, 5 iterative updates, and 5 PMM donors.
-- `scripts/manual.py` is an early all-in-one prototype. The size-specific and slope-sensitivity directories contain the maintained workflows.
 
 ## Current interpretation
 
