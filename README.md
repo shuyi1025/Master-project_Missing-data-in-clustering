@@ -231,18 +231,12 @@ Review the requested wall time, CPU count, memory, Conda environment name, and r
 - K-means uses five clusters and repeated initialisation.
 - The complete synthetic dataset is held fixed within a sample-size scenario while a new missingness pattern is generated in each Monte Carlo replication.
 - Cluster labels are matched to the benchmark solution before centroid and cluster-size errors are calculated.
-- Current MICE-PMM runners use 20 imputations, 10 iterative updates, and 5 PMM donors. The current manuscript draft describes 10 imputations and 5 iterations; this discrepancy should be resolved before the final report is submitted.
+- MICE-PMM uses 10 imputations, 5 iterative updates, and 5 PMM donors.
 - `scripts/manual.py` is an early all-in-one prototype. The size-specific and slope-sensitivity directories contain the maintained workflows.
 
 ## Current interpretation
 
 The current draft results indicate that performance worsens as missingness increases and that MAR/MNAR scenarios are generally more difficult than MCAR. Random-forest imputation currently shows the strongest overall recovery of the full-data clustering in many settings, with MICE-PMM often performing next best. These findings are provisional until all simulation and sensitivity runs have been finalised and checked.
-
-## Citation
-
-If reusing this code, cite the repository and the associated MSc report:
-
-> Peng, Shuyi (2026). *Evaluating Missing-Data Methods for K-Means Clustering of Digital Mental Health Engagement Data: A Simulation Study*. MSc project, Imperial College London.
 
 ## Project status
 
